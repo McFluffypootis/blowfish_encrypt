@@ -48,8 +48,26 @@ void blowfish_decrypt(uint32_t *L, uint32_t *R) {
 }
 
 FILE *fp;
+FILE *fp_out;
+
+char *file_buffer;
+long file_len = 0;
+
+const char outfmt[] = ".blfsh";
 
 void blowfish_init(char key[]) {
+  
+  // initalize S & P with some defaut values (idealy with digits of PI)
+  for (int i = 0; i < 18; i++) {
+    P[i] = i;
+  }
+
+  for (int i = 0; i < 4; i++) {
+    for (int j = 0; j < 256; j++) {
+      S[i][j] = j;
+    }
+  }
+
   int key_position = 0;
   int key_length = 576;
 
@@ -80,11 +98,21 @@ void blowfish_init(char key[]) {
   }
 }
 
+void get_chunk(char buff[], uint32_t *L, uint32_t *R) {}
+
 int main(int argc, char *argv[]) {
 
   enum { MODE_ENCRYPT, MODE_DECRYPT } mode = MODE_ENCRYPT;
 
   char key[576];
+  for(int i = 0; i < 576; i++) {
+    key[i] = i;
+  }
+
+  if (argc <= 1) {
+    fprintf(stderr, "Usage %s [-de] [file...] [-k] [key...]\n", argv[0]);
+    exit(EXIT_FAILURE);
+  }
 
   int opt;
   while ((opt = getopt(argc, argv, "edk:")) != -1) {
@@ -106,37 +134,91 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  // open file
   if (optind < argc) {
     printf("optind %s \n", argv[optind]);
 
-    if ((fp = fopen(argv[optind], "r")) == NULL) {
+    if ((fp = fopen(argv[optind], "rb")) == NULL) {
       fprintf(stderr, "%s: failed to open %s (%d %s)\n", argv[0], argv[optind],
               errno, strerror(errno));
+      exit(EXIT_FAILURE);
     }
+
+    // get file length
+    fseek(fp, 0, SEEK_END);
+    file_len = ftell(fp);
+    rewind(fp);
+
+    // ensure even chunkiness
+    if (file_len % 16 != 0) {
+      file_len = file_len + (16 - file_len % 16);
+    }
+
+    // create file buffer
+    file_buffer = (char *)malloc(file_len * sizeof(char));
+    fread(file_buffer, 1, file_len, fp);
+    fclose(fp);
   }
 
   blowfish_init(key);
+  printf("\n P %d", P[0]);
+  printf("S %d \n", S[0][0]);
 
-  char chunk[10];
-
-  uint32_t L;
-  uint32_t R;
+  uint32_t L = 0;
+  uint32_t R = 0;
 
   if (mode == MODE_ENCRYPT) {
-    while (fgets(chunk, 10, fp)) {
-      L = *(uint32_t *)chunk;
-      R = *(uint32_t *)(chunk + 4);
-      printf("L: %x R: %x \n", L, R);
+    if ((fp_out = fopen(strcat(argv[optind], outfmt), "a")) == NULL) {
+      fprintf(stderr, "%s: failed to create output file %s (%d %s)\n", argv[0],
+              argv[optind], errno, strerror(errno));
+      exit(EXIT_FAILURE);
+    }
+
+    long i = 0;
+    while (i < file_len) {
+      L = *(uint32_t *)(file_buffer + i);
+      R = *(uint32_t *)(file_buffer + 4 + i);
+      printf("L: %x, R: %x \n", L, R);
       blowfish_encrypt(&L, &R);
+      printf("ENC L: %x, R: %x \n", L, R);
+
+      *(uint32_t *)(file_buffer + i) = L;
+      *(uint32_t *)(file_buffer + i + 4) = R;
+      i += 8;
     }
   } else if (mode == MODE_DECRYPT) {
-    while (fgets(chunk, 10, fp)) {
-      L = *(uint32_t *)chunk;
-      R = *(uint32_t *)(chunk + 4);
-      printf("L: %x R: %x \n", L, R);
+    long i = 0;
+    if ((fp_out = fopen(strcat(argv[optind], outfmt), "a")) == NULL) {
+      fprintf(stderr, "%s: failed to create output file %s (%d %s)\n", argv[0],
+              argv[optind], errno, strerror(errno));
+      exit(EXIT_FAILURE);
+    }
+    while (i < file_len) {
+      L = *(uint32_t *)(file_buffer + i);
+      R = *(uint32_t *)(file_buffer + 4 + i);
+      printf("L: %x, R: %x \n", L, R);
       blowfish_decrypt(&L, &R);
+      printf("DEC L: %x, R: %x \n", L, R);
+      *(uint32_t *)(file_buffer + i) = L;
+      *(uint32_t *)(file_buffer + i + 4) = R;
+      i += 8;
     }
   }
+
+  long i;
+  for (i = 0; i < file_len; i += 8) {
+    printf("%hhx ", file_buffer[i]);
+    printf("%hhx ", file_buffer[i + 1]);
+    printf("%hhx ", file_buffer[i + 2]);
+    printf("%hhx ", file_buffer[i + 3]);
+    printf("%hhx ", file_buffer[i + 4]);
+    printf("%hhx ", file_buffer[i + 5]);
+    printf("%hhx ", file_buffer[i + 6]);
+    printf("%hhx  \n", file_buffer[i + 7]);
+  }
+  fwrite(file_buffer, sizeof(char), file_len, fp_out);
+  fclose(fp_out);
+  free(file_buffer);
 
   return 0;
 }

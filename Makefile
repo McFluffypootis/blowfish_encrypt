@@ -36,9 +36,15 @@ $(BUILD_DIR)/%.cpp.o: %.cpp
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
 
 
-.PHONY: clean
+.PHONY: clean test
 clean:
 	rm -r $(BUILD_DIR)
+	rm src/*.blfsh
+
+test:
+	./build/blowfish -e src/test.txt -k ABCD
+	./build/blowfish -d src/test.txt.blfsh -k ABCD
+	diff src/test.txt src/test.txt.blfsh.blfsh
 
 # Include the .d makefiles. The - at the front suppresses the errors of missing
 # Makefiles. Initially, all the .d files will be missing, and we don't want those
