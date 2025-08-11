@@ -26,12 +26,12 @@ int main(int argc, char *argv[]) {
   }
 
   if (argc <= 1) {
-    fprintf(stderr, "Usage %s [-de] [file...] [-k] [key...]\n", argv[0]);
+    fprintf(stderr, "Usage %s -o [output file...] -[ed] [input file] [-k] [key]\n", argv[0]);
     exit(EXIT_FAILURE);
   }
 
   int opt;
-  while ((opt = getopt(argc, argv, "edk:")) != -1) {
+  while ((opt = getopt(argc, argv, "oedk:")) != -1) {
     switch (opt) {
     case 'd':
       mode = MODE_DECRYPT;
@@ -42,19 +42,20 @@ int main(int argc, char *argv[]) {
     case 'k':
       strcpy(key, optarg);
       break;
-    case 'p':
+    case 'o':
       break;
     default:
-      fprintf(stderr, "Usage %s [-de] [file...] [-k] [key...]\n", argv[0]);
-      exit(EXIT_FAILURE);
+    fprintf(stderr, "Usage %s -o [output file...] -[ed] [input file] [-k] [key]\n", argv[0]);
+    exit(EXIT_FAILURE);
     }
   }
 
   // open file
   if (optind < argc) {
-    printf("optind %s \n", argv[optind]);
 
-    if ((fp = fopen(argv[optind], "rb")) == NULL) {
+    exit(EXIT_FAILURE);
+
+    if ((fp = fopen(argv[optind + 1], "rb")) == NULL) {
       fprintf(stderr, "%s: failed to open %s (%d %s)\n", argv[0], argv[optind],
               errno, strerror(errno));
       exit(EXIT_FAILURE);
@@ -100,12 +101,15 @@ int main(int argc, char *argv[]) {
       i += 8;
     }
   } else if (mode == MODE_DECRYPT) {
-    long i = 0;
-    if ((fp_out = fopen(strcat(argv[optind], outfmt), "a")) == NULL) {
+
+    if ((fp_out = fopen(argv[optind], "a")) == NULL) {
       fprintf(stderr, "%s: failed to create output file %s (%d %s)\n", argv[0],
               argv[optind], errno, strerror(errno));
       exit(EXIT_FAILURE);
     }
+
+
+    long i = 0;
     while (i < file_len) {
       L = *(uint32_t *)(file_buffer + i);
       R = *(uint32_t *)(file_buffer + 4 + i);
