@@ -3,7 +3,6 @@
 static uint32_t P[18];
 static uint32_t S[4][256];
 
-
 void swap(uint32_t *a, uint32_t *b) {
   uint32_t t = *a;
   *a = *b;
@@ -20,7 +19,7 @@ uint32_t f(uint32_t x) {
   return (h ^ S[2][tb]) + S[3][lb];
 }
 
-void blowfish_encrypt(uint32_t *L, uint32_t *R) {
+void blowfish_encrypt_chunk(uint32_t *L, uint32_t *R) {
   for (int round = 0; round < 16; round++) {
     *L = *L ^ P[round];
     *R = f(*L) ^ *R;
@@ -31,7 +30,7 @@ void blowfish_encrypt(uint32_t *L, uint32_t *R) {
   *L = *L ^ P[17];
 }
 
-void blowfish_decrypt(uint32_t *L, uint32_t *R) {
+void blowfish_decrypt_chunk(uint32_t *L, uint32_t *R) {
   for (int round = 17; round > 1; round--) {
     *L = *L ^ P[round];
     *R = f(*L) ^ *R;
@@ -43,7 +42,7 @@ void blowfish_decrypt(uint32_t *L, uint32_t *R) {
 }
 
 void blowfish_init(char key[]) {
-  
+
   // initalize S & P with some defaut values (ideally with digits of PI)
   for (int i = 0; i < 18; i++) {
     P[i] = i;
@@ -71,17 +70,46 @@ void blowfish_init(char key[]) {
   uint32_t L = 0;
   uint32_t R = 0;
   for (i = 0; i < 17; i += 2) {
-    blowfish_encrypt(&L, &R);
+    blowfish_encrypt_chunk(&L, &R);
     P[i] = L;
     P[i + 1] = R;
   }
 
   for (i = 0; i < 4; i++) {
     for (int j = 0; j < 256; j += 2) {
-      blowfish_encrypt(&L, &R);
+      blowfish_encrypt_chunk(&L, &R);
       S[i][j] = L;
       S[i][j + 1] = R;
     }
   }
 }
 
+void blowfish_encrypt(char* file_buffer, long file_len) {
+  uint32_t L = 0;
+  uint32_t R = 0;
+  long i = 0;
+  while (i < file_len) {
+    L = *(uint32_t *)(file_buffer + i);
+    R = *(uint32_t *)(file_buffer + 4 + i);
+    blowfish_encrypt_chunk(&L, &R);
+    *(uint32_t *)(file_buffer + i) = L;
+    *(uint32_t *)(file_buffer + i + 4) = R;
+    i += 8;
+  }
+}
+
+void blowfish_decrypt(char* file_buffer, long file_len) {
+  uint32_t L = 0;
+  uint32_t R = 0;
+  long i = 0;
+  while (i < file_len) {
+    L = *(uint32_t *)(file_buffer + i);
+    R = *(uint32_t *)(file_buffer + 4 + i);
+
+    blowfish_decrypt_chunk(&L, &R);
+
+    *(uint32_t *)(file_buffer + i) = L;
+    *(uint32_t *)(file_buffer + i + 4) = R;
+    i += 8;
+  }
+}

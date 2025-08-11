@@ -8,8 +8,6 @@
 
 #include "blfsh.h"
 
-const char outfmt[] = ".blfsh";
-
 FILE *fp;
 FILE *fp_out;
 
@@ -26,7 +24,9 @@ int main(int argc, char *argv[]) {
   }
 
   if (argc <= 1) {
-    fprintf(stderr, "Usage %s -o [output file...] -[ed] [input file] [-k] [key]\n", argv[0]);
+    fprintf(stderr,
+            "Usage %s -o [output file...] -[ed] [input file] [-k] [key]\n",
+            argv[0]);
     exit(EXIT_FAILURE);
   }
 
@@ -45,15 +45,15 @@ int main(int argc, char *argv[]) {
     case 'o':
       break;
     default:
-    fprintf(stderr, "Usage %s -o [output file...] -[ed] [input file] [-k] [key]\n", argv[0]);
-    exit(EXIT_FAILURE);
+      fprintf(stderr,
+              "Usage %s -o [output file...] -[ed] [input file] [-k] [key]\n",
+              argv[0]);
+      exit(EXIT_FAILURE);
     }
   }
 
   // open file
   if (optind < argc) {
-
-    exit(EXIT_FAILURE);
 
     if ((fp = fopen(argv[optind + 1], "rb")) == NULL) {
       fprintf(stderr, "%s: failed to open %s (%d %s)\n", argv[0], argv[optind],
@@ -78,46 +78,18 @@ int main(int argc, char *argv[]) {
   }
 
   blowfish_init(key);
-
-  uint32_t L = 0;
-  uint32_t R = 0;
+  if ((fp_out = fopen(argv[optind], "a")) == NULL) {
+    fprintf(stderr, "%s: failed to create output file %s (%d %s)\n", argv[0],
+            argv[optind], errno, strerror(errno));
+    exit(EXIT_FAILURE);
+  }
 
   if (mode == MODE_ENCRYPT) {
-    if ((fp_out = fopen(strcat(argv[optind], outfmt), "a")) == NULL) {
-      fprintf(stderr, "%s: failed to create output file %s (%d %s)\n", argv[0],
-              argv[optind], errno, strerror(errno));
-      exit(EXIT_FAILURE);
-    }
+    blowfish_encrypt(file_buffer, file_len);
 
-    long i = 0;
-    while (i < file_len) {
-      L = *(uint32_t *)(file_buffer + i);
-      R = *(uint32_t *)(file_buffer + 4 + i);
-
-      blowfish_encrypt(&L, &R);
-
-      *(uint32_t *)(file_buffer + i) = L;
-      *(uint32_t *)(file_buffer + i + 4) = R;
-      i += 8;
-    }
   } else if (mode == MODE_DECRYPT) {
 
-    if ((fp_out = fopen(argv[optind], "a")) == NULL) {
-      fprintf(stderr, "%s: failed to create output file %s (%d %s)\n", argv[0],
-              argv[optind], errno, strerror(errno));
-      exit(EXIT_FAILURE);
-    }
-
-
-    long i = 0;
-    while (i < file_len) {
-      L = *(uint32_t *)(file_buffer + i);
-      R = *(uint32_t *)(file_buffer + 4 + i);
-      blowfish_decrypt(&L, &R);
-      *(uint32_t *)(file_buffer + i) = L;
-      *(uint32_t *)(file_buffer + i + 4) = R;
-      i += 8;
-    }
+    blowfish_decrypt(file_buffer, file_len);
   }
 
   fwrite(file_buffer, sizeof(char), file_len, fp_out);
