@@ -78,7 +78,7 @@ int main(int argc, char *argv[]) {
   }
 
   blowfish_init(key);
-  if ((fp_out = fopen(argv[optind], "a")) == NULL) {
+  if ((fp_out = fopen(argv[optind], "w")) == NULL) {
     fprintf(stderr, "%s: failed to create output file %s (%d %s)\n", argv[0],
             argv[optind], errno, strerror(errno));
     exit(EXIT_FAILURE);
